@@ -5,6 +5,7 @@ namespace App\Tests\Unit;
 use App\DTO\LowestPriceEnquiry;
 use App\Entity\Promotion;
 use App\Filter\Modifier\DateRangeMultiplier;
+use App\Filter\Modifier\EvenItemsMultiplier;
 use App\Filter\Modifier\FixedPriceVoucher;
 use App\Tests\ServiceTestCase;
 use PHPUnit\Framework\TestCase;
@@ -32,7 +33,7 @@ class PriceModifiersTest extends ServiceTestCase
         $this->assertEquals(250, $modifyPrice);
     }
 
-    public function testVoucherReturnsACorrectlyModifierPrice()
+    public function testVoucherReturnsACorrectlyModifierPrice(): void
     {
         //Give
         $enquiry = (new LowestPriceEnquiry())
@@ -52,5 +53,51 @@ class PriceModifiersTest extends ServiceTestCase
 
         // Then
         $this->assertEquals(500, $modifyPrice);
+    }
+
+    public function testItemsMultiplierReturnsACorrectlyModifierPrice(): void
+    {
+        //Give
+        $promotion = new Promotion();
+        $promotion
+            ->setName('Buy one get one free')
+            ->setAdjustment(0.5)
+            ->setCriteria(["minimum_quantity" => 2])
+            ->setType('even_items_multiplier');
+
+        $enquiry = (new LowestPriceEnquiry())
+            ->setQuantity(5);
+
+        $evenItemsMultiplier = new EvenItemsMultiplier();
+
+        // When
+        $modifyPrice = $evenItemsMultiplier->modify(150, 5, $promotion, $enquiry);
+
+        // Then
+        // ((100 * 4) * 0.5) + (1 * 100)
+        $this->assertEquals(450, $modifyPrice);
+    }
+
+    public function testItemsMultiplierCorrectlyCalculatesAlternatives(): void
+    {
+        //Give
+        $promotion = new Promotion();
+        $promotion
+            ->setName('Buy one get one half')
+            ->setAdjustment(0.75)
+            ->setCriteria(["minimum_quantity" => 2])
+            ->setType('even_items_multiplier');
+
+        $enquiry = (new LowestPriceEnquiry())
+            ->setQuantity(5);
+
+        $evenItemsMultiplier = new EvenItemsMultiplier();
+
+        // When
+        $modifyPrice = $evenItemsMultiplier->modify(150, 5, $promotion, $enquiry);
+
+        // Then
+        // ((100 * 4) * 0.5) + (1 * 100)
+        $this->assertEquals(600, $modifyPrice);
     }
 }

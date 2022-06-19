@@ -2,26 +2,38 @@
 
 namespace App\Filter;
 
-use App\DTO\PromotionEnquiryInterface;
+use App\DTO\PriceEnquiryInterface;
 use App\Entity\Promotion;
+use App\Filter\Modifier\Factory\PriceModifierFactoryInterface;
 
-class LowestPriceFilter implements PromotionFilterInterface
+class LowestPriceFilter implements PriceFilterInterface
 {
-    public function apply(PromotionEnquiryInterface $enquiry, Promotion ...$promotion): PromotionEnquiryInterface
+    public function __construct(private PriceModifierFactoryInterface $priceModifierFactory)
+    {
+    }
+
+    public function apply(PriceEnquiryInterface $enquiry, Promotion ...$promotions): PriceEnquiryInterface
     {
         $price = $enquiry->getProduct()->getPrice();
-        $quantity= $enquiry->getQuantity();
+        $enquiry->setPrice($price);
+        $quantity = $enquiry->getQuantity();
         $lowestPrice = $quantity * $price;
 
-//        $modifyPrice = $priceModifier->modify($price, $quantity, $promotion, $enquiry);
+        foreach ($promotions as $promotion) {
+            $priceModifier = $this->priceModifierFactory->create($promotion->getType());
 
+            $modifyPrice = $priceModifier->modify($price, $quantity, $promotion, $enquiry);
 
+            if ($modifyPrice < $lowestPrice) {
+                $enquiry
+                    ->setDiscountPrice($modifyPrice)
+                    ->setPromotionId($promotion->getId())
+                    ->setPromotionName($promotion->getName());
 
-        $enquiry
-            ->setDiscountPrice(250)
-            ->setPrice(100)
-            ->setPromotionId(3)
-            ->setPromotionName('Black Friday half price sale');
+                // 2. Update $lowestPrice
+                $lowestPrice = $modifyPrice;
+            }
+        }
 
         return $enquiry;
     }
